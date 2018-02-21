@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:showIn="@layout/activity_nps"
+        tools:context="fit.nsu.com.ratewidgetsample.NPSActivityFragment">
+
+    <ImageView
+            android:id="@+id/close_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_launcher_background"
+            android:padding="@dimen/activity_horizontal_margin"
+            android:tint="#8b8b8b"
+            android:background="@null"/>
+
+    <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/zero_rate"
+            android:text="Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum"
+            android:textSize="16sp"
+    />
+
+    <TextView
+            android:id="@+id/zero_rate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/rate_image"
+            android:layout_alignParentTop="false"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentLeft="true"
+            android:text="0" />
+
+    <TextView
+            android:id="@+id/highest_rate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/rate_image"
+            android:layout_alignParentTop="false"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:text="10" />
+
+    <fit.nsu.com.ratewidgetsample.RateWidget
+            android:id="@+id/rate_image"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_above="@+id/zero_rate_text"/>
+
+    <TextView
+            android:id="@+id/zero_rate_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/rate_button"
+            android:layout_alignParentTop="false"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentLeft="true"
+            android:text="Не буду\nрекомендовать" />
+
+    <TextView
+            android:id="@+id/highest_rate_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/rate_button"
+            android:layout_alignParentTop="false"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:gravity="end"
+            android:text="Обязательно\nпорекомендую" />
+
+    <Button
+            android:id="@+id/rate_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/rate_later_button"
+            android:text="ОЦЕНИТЬ"/>
+
+    <Button
+            android:id="@+id/rate_later_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:background="@null"
+            android:text="ОЦЕНИТЬ ПОЗЖЕ"/>
+
+</RelativeLayout>
