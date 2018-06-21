@@ -21,13 +21,6 @@ public class NPSActivityFragment extends Fragment {
             Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_nps, container, false);
 
-        mRateButton = rootView.findViewById(R.id.rate_button);
-        mRateButton.setOnClickListener( l -> {
-//            mRateWidget.testAnimation(10);
-        });
-
-        mRateWidget = rootView.findViewById(R.id.rate_image);
-
         return rootView;
     }
 }

@@ -1,11 +1,13 @@
 package fit.nsu.com.ratewidgetsample;
 
+import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -22,8 +24,11 @@ import android.view.animation.AccelerateInterpolator;
 import java.util.ArrayList;
 import java.util.List;
 
-import ru.mw.R;
-import rx.subjects.PublishSubject;
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
 
 import static java.lang.Math.abs;
 import static java.lang.Math.log;
@@ -36,11 +41,13 @@ public class RateWidget extends View {
 
     private final static int INIT_STATE = -1;
     private final static String CURRENT_STATE_TAG = "current_state_tag";
+    private final static int DEFAULT_COLOR_SELECTED = 0xfffea002;
 
     private Paint mPaint;
     private int mLineStrokeWidth;
     private int mInnerPointRadius;
     private int mOuterPointRadius;
+    private float mDeltedOuterPointRadius;
     private int mSelectedPointRadius;
     private float mLineCoordinateY;
 
@@ -58,6 +65,8 @@ public class RateWidget extends View {
     private float mSimpleTextY;
     private int mSimpleTextColor = 0x61000000;
 
+    private boolean mIsAnimationRunning = false;
+
     //we need it because world is imperfect and java's float computations too
     float mDelta = 0.01f;
     float mRadiusDelta = 1f;
@@ -65,6 +74,8 @@ public class RateWidget extends View {
     private int currentRate = INIT_STATE;
 
     private PublishSubject<Integer> mRatedSubject = PublishSubject.create();
+    private PublishSubject<PointF> mClicksSubject = PublishSubject.create();
+    private Disposable mClicksSubscription;
 
     private RateWidget instant = this;
 
@@ -92,6 +103,18 @@ public class RateWidget extends View {
         super.onRestoreInstanceState(savedState.getSuperState());
 
         currentRate = savedState.stateToSave;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mClicksSubscription = subscribeToClicks(mClicksSubject.hide());
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mClicksSubscription.dispose();
     }
 
     @Override
@@ -135,6 +158,7 @@ public class RateWidget extends View {
     private void initElementsValues(){
         mLineStrokeWidth = mInnerPointRadius;
         mOuterPointRadius = (mInnerPointRadius << 1);
+        mDeltedOuterPointRadius = mOuterPointRadius + mRadiusDelta;
         mSelectedPointRadius = (mOuterPointRadius << 1);
     }
 
@@ -166,17 +190,7 @@ public class RateWidget extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if(event.getAction() == MotionEvent.ACTION_DOWN) {
-            for (int i = 0; i < mPointsCenters.size(); ++i) {
-                if (abs(event.getX() - (float)mPointsCenters.get(i)) < mSelectedPointRadius) {
-                    if (currentRate == RateWidget.INIT_STATE){
-                        currentRate = 0;
-                        initStartPoint();
-                    }
-                    mRatedSubject.onNext(i);
-                    drawRate(currentRate, i);
-                    currentRate = i;
-                }
-            }
+            mClicksSubject.onNext(new PointF(event.getX(), event.getY()));
         }
         return super.onTouchEvent(event);
     }
@@ -284,6 +298,19 @@ public class RateWidget extends View {
         animator.setInterpolator(new AccelerateInterpolator());
         animator.addUpdateListener(new CustomValueAnimatorListener(startRate, targetRate));
         animator.start();
+        mIsAnimationRunning = true;
+
+        animator.addListener(new AnimatorListenerStub() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                mIsAnimationRunning = false;
+                // If user has picked another rate while animator was working
+                // we should run animation once again
+                if (currentRate != targetRate){
+                    drawRate(targetRate, currentRate);
+                }
+            }
+        });
     }
 
     /**
@@ -314,12 +341,15 @@ public class RateWidget extends View {
     }
 
     private int getDefaultColorSelected(){
-        return getColorFromDefaultStyle(android.R.attr.colorPrimary);
+
+        return android.os.Build.VERSION.SDK_INT >= 21 ?
+                getColorFromDefaultStyle(android.R.attr.colorPrimary) :
+                DEFAULT_COLOR_SELECTED;
     }
 
     private int getColorFromDefaultStyle(int attr) {
         int[] attrs = {attr};
-        TypedArray arr = getContext().obtainStyledAttributes(R.style.Theme_QIWI, attrs);
+        TypedArray arr = getContext().obtainStyledAttributes(R.style.AppTheme, attrs);
         int color = arr.getColor(0, 0xFF000000);
         arr.recycle();
         return color;
@@ -376,9 +406,6 @@ public class RateWidget extends View {
         float currentPointCoordinate = 0f;
 
         int mainColor;
-
-        //just buffer variable
-        int radius = 0;
 
         //just buffer variable
         float currentStart;
@@ -438,11 +465,11 @@ public class RateWidget extends View {
 
             currentPointCoordinate = mPointsCenters.get(startRate + directionCoef * currentPointDrawed);
             if (abs(currentStart - startX) - abs(currentPointCoordinate - startX) >= mSelectedPointRadius){
+                clearPointArea();
                 if (directionCoef == 1) {
-                    radius = mOuterPointRadius;
-                    mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, radius, mPaint);
+                    mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, mDeltedOuterPointRadius, mPaint);
                 } else {
-                    mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, mOuterPointRadius + mRadiusDelta, mPaint);
+                    mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, mDeltedOuterPointRadius, mPaint);
                     mPaint.setColor(mBackgroundColor);
                     mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, mInnerPointRadius, mPaint);
                     mPaint.setColor(mainColor);
@@ -454,15 +481,27 @@ public class RateWidget extends View {
                 if (targetRate == 0 || targetRate == mPointNumber - 1){
                     clearPointTextArea(targetRate);
                 }
-                currentPointCoordinate = mPointsCenters.get(targetRate);
                 mPaint.setColor(mSelectedColor);
                 mCanvas.drawCircle(currentPointCoordinate, mLineCoordinateY, mSelectedPointRadius, mPaint);
-
                 drawRateText(targetRate, true, mCanvas);
             }
             prevValue = currentValue;
 
             instant.invalidate();
+        }
+
+        private void clearPointArea(){
+            mPaint.setColor(mBackgroundColor);
+            mCanvas.drawRect(
+                    new Rect(
+                            (int)currentPointCoordinate - mOuterPointRadius,
+                            (int)mLineCoordinateY + mOuterPointRadius + (int)mRadiusDelta * 2,
+                            (int)currentPointCoordinate + mOuterPointRadius,
+                            (int)mLineCoordinateY - mOuterPointRadius - (int)mRadiusDelta * 2
+                    ),
+                    mPaint
+            );
+            mPaint.setColor(mainColor);
         }
     }
 
@@ -495,5 +534,46 @@ public class RateWidget extends View {
                         return new SavedState[size];
                     }
                 };
+    }
+
+    private Disposable subscribeToClicks(Observable<PointF> clicksObservable){
+        return clicksObservable
+                .flatMap(pointF -> {
+                    for (int i = 0; i < mPointsCenters.size(); ++i) {
+                        if (abs(pointF.x - (float)mPointsCenters.get(i)) < mSelectedPointRadius) {
+                            return Observable.just(i);
+                        }
+                    }
+                    return Observable.empty();
+                })
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        i -> {
+                            if (currentRate == RateWidget.INIT_STATE){
+                                currentRate = 0;
+                                initStartPoint();
+                            }
+                            // We run animation only if previous has been done
+                            // and just change variable otherwise
+                            if (!mIsAnimationRunning) {
+                                drawRate(currentRate, i);
+                            }
+                            currentRate = i;
+                            mRatedSubject.onNext(i);
+                        }
+                );
+    }
+
+    private abstract class AnimatorListenerStub implements Animator.AnimatorListener{
+
+        @Override
+        public void onAnimationStart(Animator animation) { }
+
+        @Override
+        public void onAnimationCancel(Animator animation) { }
+
+        @Override
+        public void onAnimationRepeat(Animator animation) { }
     }
 }
